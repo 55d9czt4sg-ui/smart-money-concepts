@@ -800,7 +800,7 @@ class smc:
     ) -> Series:
         """
         Sessions
-        This method returns wwhich candles are within the session specified
+        This method returns which candles are within the session specified
 
         parameters:
         session: str - the session you want to check (Sydney, Tokyo, London, New York, Asian kill zone, London open kill zone, New York kill zone, london close kill zone, Custom)
