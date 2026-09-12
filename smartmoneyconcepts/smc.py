@@ -196,13 +196,13 @@ class smc:
 
         if len(positions) > 0:
             if swing_highs_lows[positions[0]] == 1:
-                swing_highs_lows[0] = -1
-            if swing_highs_lows[positions[0]] == -1:
-                swing_highs_lows[0] = 1
+                swing_highs_lows[positions[0]] = -1
+            elif swing_highs_lows[positions[0]] == -1:
+                swing_highs_lows[positions[0]] = 1
             if swing_highs_lows[positions[-1]] == -1:
-                swing_highs_lows[-1] = 1
-            if swing_highs_lows[positions[-1]] == 1:
-                swing_highs_lows[-1] = -1
+                swing_highs_lows[positions[-1]] = 1
+            elif swing_highs_lows[positions[-1]] == 1:
+                swing_highs_lows[positions[-1]] = -1
 
         level = np.where(
             ~np.isnan(swing_highs_lows),
@@ -800,7 +800,7 @@ class smc:
     ) -> Series:
         """
         Sessions
-        This method returns wwhich candles are within the session specified
+        This method returns which candles are within the session specified
 
         parameters:
         session: str - the session you want to check (Sydney, Tokyo, London, New York, Asian kill zone, London open kill zone, New York kill zone, london close kill zone, Custom)
@@ -932,7 +932,7 @@ class smc:
             else:
                 direction[i] = direction[i - 1] if i > 0 else 0
 
-            if direction[i - 1] == 1:
+            if i > 0 and direction[i - 1] == 1:
                 divisor = top - bottom
                 current_retracement[i] = round(
                     100 - (((ohlc["low"].iloc[i] - bottom) / divisor) * 100) if divisor != 0 else 0, 1
@@ -945,7 +945,7 @@ class smc:
                     ),
                     current_retracement[i],
                 )
-            if direction[i] == -1:
+            if i > 0 and direction[i] == -1:
                 divisor = bottom - top
                 current_retracement[i] = round(
                     100 - ((ohlc["high"].iloc[i] - top) / divisor) * 100 if divisor != 0 else 0, 1
