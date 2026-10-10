@@ -35,6 +35,13 @@ from dataclasses import dataclass, asdict
 # All API calls should be wrapped in try/except and return graceful
 # error messages if APIs are unavailable.
 
+# Try to import QuantWheel integration (optional)
+try:
+    from quantwheel_integration import screen_spx_ndx_sync
+    QUANTWHEEL_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    QUANTWHEEL_AVAILABLE = False
+
 # ============================================================================
 # DATA MODELS
 # ============================================================================
@@ -195,8 +202,33 @@ def phase_b_quantwheel_screen() -> list:
       - gamma_flip and vanna_flip levels
       - wall move direction (today vs yesterday)
     """
-    # Stub: In production, call QuantWheel API with these exact filters
-    candidates_raw = [
+    # Try QuantWheel API first, fall back to mock data
+    if QUANTWHEEL_AVAILABLE:
+        print("  → Attempting QuantWheel API call...")
+        candidates_raw = screen_spx_ndx_sync()
+        if candidates_raw:
+            print(f"  ✓ QuantWheel API returned {len(candidates_raw)} candidates")
+        else:
+            print("  ⚠ QuantWheel API unavailable or returned no results")
+            print("  → Using mock data for testing")
+            candidates_raw = _get_mock_candidates()
+    else:
+        print("  → QuantWheel integration not available")
+        print("  → Using mock data for testing")
+        candidates_raw = _get_mock_candidates()
+
+    # Convert to PositioningData objects
+    results = []
+    for ticker, spot, data in candidates_raw:
+        pos = PositioningData(**data)
+        results.append((ticker, spot, pos))
+
+    return results
+
+
+def _get_mock_candidates() -> list:
+    """Return mock candidates for testing when QuantWheel is unavailable."""
+    return [
         ("AAPL", 227.50, {
             "gamma": 12.5e6,
             "vanna": 2.3,
@@ -242,14 +274,6 @@ def phase_b_quantwheel_screen() -> list:
             "call_wall_move_today": "Up",
         }),
     ]
-
-    # Convert to PositioningData objects
-    results = []
-    for ticker, spot, data in candidates_raw:
-        pos = PositioningData(**data)
-        results.append((ticker, spot, pos))
-
-    return results
 
 
 # ============================================================================
