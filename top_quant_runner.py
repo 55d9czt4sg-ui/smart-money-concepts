@@ -48,6 +48,12 @@ try:
 except (ImportError, ModuleNotFoundError):
     TRADINGVIEW_AVAILABLE = False
 
+try:
+    from pineify_integration import validate_flow_confirmation_sync
+    PINEIFY_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    PINEIFY_AVAILABLE = False
+
 # ============================================================================
 # DATA MODELS
 # ============================================================================
@@ -639,6 +645,15 @@ def run_top_quant() -> list:
         # Phase E: FlashAlpha
         flashalpha = phase_e_flashalpha_confirmation(ticker, weekly_positioning)
         print(f"      [E] FlashAlpha: {flashalpha}")
+
+        # Phase D4 (Optional): Pineify Flow Confirmation
+        if PINEIFY_AVAILABLE:
+            flow_status = validate_flow_confirmation_sync(ticker, "bullish")
+            print(f"          Flow: {flow_status}")
+        else:
+            # Synthetic flow confirmation for testing (assume confirmed for strong names)
+            flow_status = "Confirmed" if ticker in ("QQQ", "AAPL") else "Neutral"
+            print(f"          Flow: {flow_status} (synthetic)")
 
         # Phase F: SMC
         smc = phase_f_smc_validation(ticker, weekly_positioning)
