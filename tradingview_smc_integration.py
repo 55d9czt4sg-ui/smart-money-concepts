@@ -27,34 +27,43 @@ class SMCValidation:
 
 async def get_smc_1d_structure(ticker: str) -> Optional[dict]:
     """
-    Fetch 1D SMC structure from TradingView.
+    Fetch 1D SMC structure from TradingView via CLAUDE_DESKTOP analyze_smc_tool.
 
-    TODO: Call TradingView MCP tools (tvremix or CLAUDE_DESKTOP):
-
-        1. Fetch 1D technicals via analyze_smc_tool or get_technicals
-        2. Identify demand/supply zones
-        3. Check for fresh order blocks or swept liquidity
-        4. Assess buyer control strength
-
-    Example API call:
-
-        tv_1d = await mcp__CLAUDE_DESKTOP__analyze_smc_tool(
-            symbol=ticker,
-            timeframe="1D"
-        )
-
-        return {
-            "buyer_control": tv_1d.buyer_control_strength,  # 0–1.0
-            "demand_present": tv_1d.demand_zone_detected,
-            "supply_overhead": tv_1d.supply_zone_detected,
-            "recent_demand_zone": tv_1d.last_demand_level,
-            "recent_supply_zone": tv_1d.last_supply_level,
-            "ob_structure": tv_1d.order_block_structure
-        }
+    Returns demand/supply zones, order blocks, and buyer control assessment.
     """
     try:
-        print(f"[TODO] Fetch 1D SMC structure for {ticker}")
-        return None
+        # Format ticker for TradingView (NASDAQ:AAPL, etc.)
+        tv_symbol = f"NASDAQ:{ticker}" if ":" not in ticker else ticker
+
+        # Fetch 1D SMC structure analysis
+        tv_1d = await mcp__CLAUDE_DESKTOP__analyze_smc_tool(
+            symbol=tv_symbol,
+            interval="1D",
+            count=300,
+            swing_lookback=20  # Swing-level structure for daily timeframe
+        )
+
+        if not tv_1d:
+            return None
+
+        # Extract key structural elements
+        demand_zones = tv_1d.get("demand_zones", [])
+        supply_zones = tv_1d.get("supply_zones", [])
+        order_blocks = tv_1d.get("order_blocks", [])
+        fvg_list = tv_1d.get("fvg", [])
+
+        # Assess buyer control (presence of demand zones + recent order blocks)
+        buyer_control = 0.7 if (demand_zones and order_blocks) else 0.4
+
+        return {
+            "buyer_control": buyer_control,
+            "demand_present": len(demand_zones) > 0,
+            "supply_overhead": len(supply_zones) > 0,
+            "recent_demand_zone": demand_zones[0] if demand_zones else None,
+            "recent_supply_zone": supply_zones[0] if supply_zones else None,
+            "ob_structure": order_blocks[0] if order_blocks else None,
+            "bias": tv_1d.get("bias", "neutral")
+        }
     except Exception as e:
         print(f"Error fetching 1D SMC for {ticker}: {e}")
         return None
@@ -62,28 +71,47 @@ async def get_smc_1d_structure(ticker: str) -> Optional[dict]:
 
 async def get_smc_1h_entry_quality(ticker: str) -> Optional[dict]:
     """
-    Fetch 1H entry structure (CHOCH/BOS, liquidity, entry into supply).
+    Fetch 1H entry structure (CHOCH/BOS, liquidity, entry conditions).
 
-    TODO: Call TradingView MCP tools:
-
-        tv_1h = await mcp__CLAUDE_DESKTOP__analyze_smc_tool(
-            symbol=ticker,
-            timeframe="1H"
-        )
-
-        return {
-            "direction": tv_1h.price_direction,  # "bullish" | "bearish" | "neutral"
-            "choch": tv_1h.change_of_character_confirmed,  # Breaking structure
-            "bos": tv_1h.break_of_structure_confirmed,  # Breaking liquidity
-            "liquidity_swept": tv_1h.recent_liquidity_sweep,
-            "entry_quality": tv_1h.entry_zone_quality,
-            "price_in_supply": tv_1h.price_in_supply_zone,
-            "price_in_demand": tv_1h.price_in_demand_zone
-        }
+    Analyzes intraday setup for entry quality: structure breaks, liquidity sweeps,
+    and price positioning relative to supply/demand zones.
     """
     try:
-        print(f"[TODO] Fetch 1H entry structure for {ticker}")
-        return None
+        # Format ticker for TradingView
+        tv_symbol = f"NASDAQ:{ticker}" if ":" not in ticker else ticker
+
+        # Fetch 1H SMC structure analysis
+        tv_1h = await mcp__CLAUDE_DESKTOP__analyze_smc_tool(
+            symbol=tv_symbol,
+            interval="60",  # 1H = 60 minutes
+            count=300,
+            swing_lookback=5  # Tighter lookback for intraday pivots
+        )
+
+        if not tv_1h:
+            return None
+
+        # Extract intraday structure
+        demand_zones = tv_1h.get("demand_zones", [])
+        supply_zones = tv_1h.get("supply_zones", [])
+        liquidity_levels = tv_1h.get("liquidity", [])
+        bias = tv_1h.get("bias", "neutral")
+
+        # Assess entry quality
+        # Strong entry: bias aligned with entry direction + demand zone present + liquidity sweep
+        choch_bos_detected = len(liquidity_levels) > 0
+        entry_quality = "High" if (bias == "bullish" and demand_zones) else "Medium" if bias != "neutral" else "Low"
+
+        return {
+            "direction": bias,  # "bullish" | "bearish" | "neutral"
+            "choch": len(liquidity_levels) > 0,  # Liquidity break detected
+            "bos": choch_bos_detected,  # Break of structure
+            "liquidity_swept": choch_bos_detected,
+            "entry_quality": entry_quality,
+            "price_in_supply": len(supply_zones) > 0,
+            "price_in_demand": len(demand_zones) > 0,
+            "recent_lows": liquidity_levels[:2] if liquidity_levels else []
+        }
     except Exception as e:
         print(f"Error fetching 1H SMC for {ticker}: {e}")
         return None

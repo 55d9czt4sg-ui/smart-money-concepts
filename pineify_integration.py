@@ -17,25 +17,46 @@ async def get_options_flow_confirmation(ticker: str, timeframe: str = "1d") -> O
     """
     Fetch recent options flow data from Pineify for a single ticker.
 
-    TODO: Call Pineify MCP tools:
-
-        flow_data = await mcp__PINEIFY__find_options_flow_alerts(
-            symbol=ticker,
-            filter="all",  # Get both bullish and bearish
-            timeframe=timeframe
-        )
-
-        return {
-            "bullish_count": len([f for f in flow_data if f.get("direction") == "bullish"]),
-            "bearish_count": len([f for f in flow_data if f.get("direction") == "bearish"]),
-            "flow_score": bullish_count / (bullish_count + bearish_count) if total > 0 else 0.5,
-            "recent_volume": flow_data.total_notional if hasattr(flow_data, 'total_notional') else 0,
-            "flow_direction": "bullish" if bullish_count > bearish_count else "bearish"
-        }
+    Calls mcp__PINEIFY__find-options-flow-alerts to get bullish/bearish flow alerts,
+    then calculates a flow score indicating the ratio of bullish to total alerts.
     """
     try:
-        print(f"[TODO] Fetch options flow for {ticker} ({timeframe})")
-        return None
+        # Fetch options flow alerts from Pineify
+        flow_resp = await mcp__PINEIFY__find_options_flow_alerts(
+            symbols=[ticker],
+            limit=20
+        )
+
+        if not flow_resp or not hasattr(flow_resp, 'data') or not flow_resp.data:
+            return None
+
+        # Extract bullish and bearish alerts
+        alerts = flow_resp.data if isinstance(flow_resp.data, list) else [flow_resp.data]
+
+        bullish_alerts = [a for a in alerts if a.get("direction", "").lower() == "bullish"]
+        bearish_alerts = [a for a in alerts if a.get("direction", "").lower() == "bearish"]
+
+        total = len(bullish_alerts) + len(bearish_alerts)
+
+        if total == 0:
+            return {
+                "bullish_count": 0,
+                "bearish_count": 0,
+                "flow_score": 0.5,  # Neutral if no data
+                "recent_volume": 0,
+                "flow_direction": "neutral"
+            }
+
+        flow_score = len(bullish_alerts) / total
+        total_premium = sum(a.get("premium_usd", 0) for a in alerts)
+
+        return {
+            "bullish_count": len(bullish_alerts),
+            "bearish_count": len(bearish_alerts),
+            "flow_score": flow_score,
+            "recent_volume": total_premium,
+            "flow_direction": "bullish" if flow_score > 0.5 else "bearish" if flow_score < 0.5 else "neutral"
+        }
     except Exception as e:
         print(f"Error fetching flow for {ticker}: {e}")
         return None
