@@ -40,9 +40,9 @@ class PositioningSnapshot:
 async def get_gex_heatmap_for_ticker(ticker: str, expiration: str = "Weekly") -> Optional[PositioningSnapshot]:
     """
     Fetch GEX positioning data from QuantWheel for a single ticker.
-
-    TODO: Replace with actual MCP call:
-
+    """
+    try:
+        # Call QuantWheel APIs via MCP
         response = await mcp__QUANTWHEEL__get_gex_heatmap(
             symbol=ticker,
             expiration=expiration
@@ -52,23 +52,18 @@ async def get_gex_heatmap_for_ticker(ticker: str, expiration: str = "Weekly") ->
 
         return PositioningSnapshot(
             ticker=ticker,
-            spot=quote.last_price,
-            gamma=response.net_gamma,
-            vanna=response.vanna_value,
-            vanna_bb=response.vanna_bull_bear_ratio,
-            put_wall=response.put_wall_level,
-            call_wall=response.call_wall_level,
-            max_bull=response.max_bull_level,
-            gamma_flip=response.gamma_flip_level,
-            put_wall_move_today=response.put_wall_direction,
-            call_wall_move_today=response.call_wall_direction,
+            spot=quote.get("last_price", quote.get("price", 0)),
+            gamma=response.get("gamma", 0),
+            vanna=response.get("vanna", 0),
+            vanna_bb=response.get("vanna_bull_bear_ratio", 1.0),
+            put_wall=response.get("put_wall_level", 0),
+            call_wall=response.get("call_wall_level", 0),
+            max_bull=response.get("max_bull_level", 0),
+            gamma_flip=response.get("gamma_flip_level", 0),
+            put_wall_move_today=response.get("put_wall_direction", "Flat"),
+            call_wall_move_today=response.get("call_wall_direction", "Flat"),
             expiration=expiration
         )
-    """
-    try:
-        # TODO: Call QuantWheel API
-        print(f"[TODO] Fetch GEX for {ticker} ({expiration})")
-        return None
     except Exception as e:
         print(f"Error fetching GEX for {ticker}: {e}")
         return None
@@ -91,9 +86,9 @@ async def screen_gex_tickers(
     - RV/IV range: 1.00–1.50
     - Daily price move: -1% to +2%
     - IV trend: Declining
-
-    TODO: Replace with actual MCP call:
-
+    """
+    try:
+        # Call QuantWheel screener with core four filters
         response = await mcp__QUANTWHEEL__screen_gex_tickers(
             markets=markets,
             filters={
@@ -113,12 +108,7 @@ async def screen_gex_tickers(
             expiration=expiration
         )
 
-        return response.tickers  # List of passing tickers
-    """
-    try:
-        # TODO: Call QuantWheel screener API
-        print(f"[TODO] Screen {', '.join(markets)} for core four filters")
-        return []
+        return response.get("tickers", []) if isinstance(response, dict) else response
     except Exception as e:
         print(f"Error screening QuantWheel: {e}")
         return []
