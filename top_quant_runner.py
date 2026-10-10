@@ -35,12 +35,18 @@ from dataclasses import dataclass, asdict
 # All API calls should be wrapped in try/except and return graceful
 # error messages if APIs are unavailable.
 
-# Try to import QuantWheel integration (optional)
+# Try to import API integration layers (optional)
 try:
     from quantwheel_integration import screen_spx_ndx_sync
     QUANTWHEEL_AVAILABLE = True
 except (ImportError, ModuleNotFoundError):
     QUANTWHEEL_AVAILABLE = False
+
+try:
+    from tradingview_smc_integration import validate_smc_structure_sync
+    TRADINGVIEW_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    TRADINGVIEW_AVAILABLE = False
 
 # ============================================================================
 # DATA MODELS
@@ -395,10 +401,15 @@ def phase_f_smc_validation(ticker: str, positioning: PositioningData) -> SMCVali
     Check 1D buyer control, daily demand/supply, 1H CHOCH/BOS, liquidity.
 
     Returns SMCValidation object.
-    """
-    # Stub: Query TradingView for SMC structure
 
-    # Synthetic SMC (assume strong for tier-1 names)
+    If TradingView integration is available, fetches real structure data.
+    Otherwise uses synthetic data for testing.
+    """
+    # Try TradingView API first
+    if TRADINGVIEW_AVAILABLE:
+        return validate_smc_structure_sync(ticker)
+
+    # Fall back to synthetic SMC for testing
     if ticker in ("QQQ", "AAPL", "SPY"):
         return SMCValidation(
             buyer_control_1d="Strong",
